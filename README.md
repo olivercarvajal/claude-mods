@@ -1,6 +1,6 @@
 # claude-mods
 
-Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and the model and effort you are working with under the prompt.
+Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and pills under the prompt with the model, the effort and the context used.
 
 Made for dark terminal themes. Built on Claude Code 2.1.329.
 
@@ -22,7 +22,7 @@ Paste this section to a Claude Code agent, or run it yourself.
    ```
 5. Run `claude plugin list` again. It must show `reader@oliver-mods` with `Status: ✔ enabled`.
 6. Tell the user to open a new chat, or to type `/reload-plugins` in each chat already open. An agent cannot run that command for them, and its own chat keeps the old look until then.
-7. Ask the user to check it in that chat. The model and effort show at the right of the line under the prompt, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
+7. Ask the user to check it in that chat. Pills with the model and the effort show at the right of the footer under the prompt, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
 
 ### Update
 
@@ -109,17 +109,23 @@ An unlabeled fence with counts like `+51 -1` draws the `+` numbers green and the
 
 An unlabeled fence drawn with box-drawing characters or arrows also gets gray lines, blue node names and cream labels.
 
-### Model and effort under the prompt
+### Model, effort and context under the prompt
 
-The right end of the line under the prompt shows the model and the effort of the last request: five steps from `low` to `max`. Until the first request it reads the effort `/effort` saved in your settings. After `/model` or `/effort` it updates with the next request.
+Three pills at the right of the footer under the prompt:
+
+- The model.
+- The effort of the last request, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
+- The context used, green under 50%, yellow to 80%, red past it. It shows from the first request on.
+
+Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the pills update with the next request. The pill tints are mixed for a `#2c2e39` background.
 
 **Without reader**
 
-![The prompt and the line under it with only the permission mode](docs/reader-footer-before.png)
+![The prompt and the footer under it with only the permission mode](docs/reader-footer-before.png)
 
 **With reader**
 
-![The "Hard to follow?" band above the prompt, and "Opus 5.5" with four of five pink steps and "xhigh" at the right of the line under it](docs/reader-footer-after.png)
+![The "Hard to follow?" band above the prompt, and three pills under it: "Opus 5.5", four of five purple steps with "xhigh", and a green "7%"](docs/reader-footer-after.png)
 
 ### "Hard to follow?" band
 
