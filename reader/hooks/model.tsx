@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { Elements, EngineInterface, On, Timer } from 'claude-code'
+import type { Elements, EngineInterface, On, Settings, Timer } from 'claude-code'
 
 type Table = Elements['terminal']
 
@@ -31,6 +31,9 @@ const contextUsed = atom({ plugin: 'reader', key: 'contextUsed' } as const, null
 // null at rest: nothing lit.
 const frame = atom({ plugin: 'reader', key: 'frame' } as const, null)
 
+// The model and effort the settings held at the last merge, to tell a /effort or /model save from any other reload.
+let lastSaved: string | undefined
+
 // Animates xhigh and max only while a turn runs: the spinner redraws then anyway, and an idle footer stays still.
 let ticking: Timer | undefined
 
@@ -49,6 +52,26 @@ export function registerModel(on: On): void {
     await readContext($)
 
     return result
+  })
+
+  // `/effort` and `/model` save to settings, and the engine merges them again: show the change before the next request.
+  on('settings.read', async ($, e, next) => {
+    const merged = await next(e)
+
+    if (next.origin.plugin === 'engine' && e.source === undefined && merged.value !== undefined) {
+      const id = await $.session.model()
+      const effort = savedEffort(merged.value, id)
+      const saved = `${id} ${effort}`
+      // The first merge only sets the baseline: startModel and the requests own the row until a save changes it.
+      const isSave = lastSaved !== undefined && lastSaved !== saved
+      lastSaved = saved
+
+      if (isSave) {
+        await update($, info, () => ({ id, effort }))
+      }
+    }
+
+    return merged
   })
 
   // A compacted or cleared conversation has no reading until its next request.
@@ -96,12 +119,8 @@ export async function modelRow($: EngineInterface, table: Table) {
 /** Until the first request: the effort `/effort` saved for this model, else the global one. */
 export async function startModel($: EngineInterface): Promise<void> {
   const id = await $.session.model()
-  // `modelSettings` keys carry no context suffix: `claude-opus-5-5`, not `claude-opus-5-5[1m]`.
-  const key = id.replace(/\[.*\]$/, '')
-  const perModel = await $.settings.read({ key: 'modelSettings' })
-  const shared = await $.settings.read({ key: 'effortLevel' })
-  const saved = isRecord(perModel) && isRecord(perModel[key]) ? perModel[key].effortLevel : undefined
-  const effort = asText(saved) ?? asText(shared)
+  const effort = savedEffort(await $.settings.read(), id)
+  lastSaved = `${id} ${effort}`
 
   // A request since, or before a reload, knows better.
   await update($, info, current => current ?? { id, effort })
@@ -189,6 +208,16 @@ function contextColor(percent: number): string {
   }
 
   return CONTEXT_OK
+}
+
+/** The effort `/effort` saved for this model, else the global one. */
+function savedEffort(settings: Settings, id: string): string | null {
+  // `modelSettings` keys carry no context suffix: `claude-opus-5-5`, not `claude-opus-5-5[1m]`.
+  const key = id.replace(/\[.*\]$/, '')
+  const perModel = settings.modelSettings
+  const saved = isRecord(perModel) && isRecord(perModel[key]) ? perModel[key].effortLevel : undefined
+
+  return asText(saved) ?? asText(settings.effortLevel)
 }
 
 async function animate($: EngineInterface, isAnimated: boolean): Promise<void> {

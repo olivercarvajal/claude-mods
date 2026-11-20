@@ -5,7 +5,7 @@ export type Explanation = { subject: string; text: string }
 
 export type ReaderView = 'explain' | 'terms'
 
-/** The main loop's model id and the effort its last request sent; `effort` is null on a model without one. */
+/** The main loop's model id and the effort its last request sent, or the one `/effort` just saved; null when there is none. */
 export type ModelInfo = { id: string; effort: string | null }
 
 declare module 'claude-code' {

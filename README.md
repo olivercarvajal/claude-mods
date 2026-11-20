@@ -117,7 +117,7 @@ A row right above the prompt, with a blank row over it so it does not touch the 
 - The effort of the last request in a round pill, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
 - The context used in a round pill: green under 30%, yellow from 30%, red from 60%. Answers get worse well before the window fills, so yellow means think about `/compact` or `/clear` and red means do it. It shows from the first request on, and clears after `/compact` or `/clear` until the next one.
 
-Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the row updates with the next request. The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
+Until the first request the effort is the one `/effort` saved in your settings. `/model` and `/effort` show on the row as soon as they save. The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
 
 **Without reader**
 
@@ -126,6 +126,10 @@ Until the first request the effort is the one `/effort` saved in your settings. 
 **With reader**
 
 ![A row above the prompt: "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", a round green "7%", and the engine's [-] mark above the row](docs/reader-footer-after.png)
+
+**Right after `/effort low`, before any request**
+
+![The /effort low output, then the row above the prompt already showing "Opus 5.5" and a yellow pill with one of five steps and "low"](docs/reader-effort-after.png)
 
 ### Commands
 
