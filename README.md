@@ -1,6 +1,6 @@
 # claude-mods
 
-Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and the model, effort and context used on the line under the prompt.
+Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and the model, effort and context used in a row above the prompt.
 
 Made for dark terminal themes. Built on Claude Code 2.1.329.
 
@@ -22,7 +22,7 @@ Paste this section to a Claude Code agent, or run it yourself.
    ```
 5. Run `claude plugin list` again. It must show `reader@oliver-mods` with `Status: ✔ enabled`.
 6. Tell the user to open a new chat, or to type `/reload-plugins` in each chat already open. An agent cannot run that command for them, and its own chat keeps the old look until then.
-7. Ask the user to check it in that chat. The model and the effort show on the line under the prompt, after the permission mode, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
+7. Ask the user to check it in that chat. The model and the effort show in a row right above the prompt, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
 
 ### Update
 
@@ -109,17 +109,15 @@ An unlabeled fence with counts like `+51 -1` draws the `+` numbers green and the
 
 An unlabeled fence drawn with box-drawing characters or arrows also gets gray lines, blue node names and cream labels.
 
-### Model, effort and context under the prompt
+### Model, effort and context above the prompt
 
-On the line under the prompt. Claude Code draws the permission mode first (`⏵⏵ bypass permissions on`) and no mod can move it, so the mod drops the `(shift+tab to cycle)` reminder after it and adds, in order:
+A row right above the prompt, with a blank row over it so it does not touch the reply:
 
 - The model, in gray.
 - The effort of the last request in a round pill, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
-- The context used in a round pill, green under 50%, yellow from 50%, red from 80%. It shows from the first request on, and clears after `/compact` or `/clear` until the next one.
+- The context used in a round pill: green under 30%, yellow from 30%, red from 60%. Answers get worse well before the window fills, so yellow means think about `/compact` or `/clear` and red means do it. It shows from the first request on, and clears after `/compact` or `/clear` until the next one.
 
-Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the line updates with the next request. It stays one line while a permission mode shows. In the default mode there is no reminder to drop, and Claude Code keeps its own line and puts this one under it. The rest of that line (`← 1 agent`) is drawn as plain text, so the agents pill stops responding to clicks and loses its ↓ highlight.
-
-The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
+"Hard to follow?" shares the row, on the right, and moves to a row of its own in a terminal narrower than about 80 columns. Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the row updates with the next request. The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
 
 **Without reader**
 
@@ -127,11 +125,11 @@ The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js te
 
 **With reader**
 
-![The "Hard to follow?" band above the prompt, and one line under it: "auto mode on · ← 1 agent", then "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", and a round green "7%"](docs/reader-footer-after.png)
+![A row above the prompt: "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", a round green "7%", and under it "Hard to follow?" with its two buttons](docs/reader-footer-after.png)
 
 ### "Hard to follow?" band
 
-After a reply longer than 20 lines, or with 4 or more inline code names, a band shows above the prompt (top of the image above). `s` asks for the short version, `z` for an explanation from zero with an example. Both answer in the Reader pane. The hotkeys are letters so a digit typed as an answer never presses a button.
+After a reply longer than 20 lines, or with 4 or more inline code names, "Hard to follow?" shows at the right of that row (in the image above). `s` asks for the short version, `z` for an explanation from zero with an example. Both answer in the Reader pane. The hotkeys are letters so a digit typed as an answer never presses a button.
 
 ### Commands
 
