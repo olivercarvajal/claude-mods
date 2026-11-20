@@ -3,7 +3,7 @@ import type { CommandSpec, EngineInterface, ModelEffort, Register } from 'claude
 
 import { splitReply, termsIn } from './blocks'
 import { drawBlocks, LINE_COLOR } from './draw'
-import { registerModel, startModel } from './model'
+import { registerModel, startModel, stopModelFrames } from './model'
 import type { Term } from '../types'
 
 const PANE = 'reader'
@@ -114,6 +114,9 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
 
+    if (e.agentId === undefined) {
+      await stopModelFrames($)
+    }
     if (e.agentId === undefined && e.reason === 'answer') {
       await update($, isOffering, () => isDense(e.answer))
       await addTerms($, termsIn(e.answer))

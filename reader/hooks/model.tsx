@@ -1,28 +1,70 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On } from 'claude-code'
+import type { Elements, EngineInterface, On, Timer } from 'claude-code'
 
-import { BOLD_COLOR, LINE_COLOR, TITLE_COLOR } from './draw'
-import type { ModelInfo } from '../types'
+type Table = Elements['terminal']
 
-// What `/effort` steps through, lowest first. A level outside it draws as text alone.
+// What `/effort` steps through, lowest first, in the colors its picker draws (read off a recording of it).
 const LEVELS = ['low', 'medium', 'high', 'xhigh', 'max']
-const FILLED = '▰'
-const EMPTY = '▱'
+const LEVEL_COLOR: Record<string, string> = { low: '#ffc107', medium: '#4eba65', high: '#b1b9f9', xhigh: '#af87ff' }
+// The picker's xhigh sweeps this lighter purple across the word; max cycles this rainbow, one letter ahead of the next.
+const XHIGH_LIGHT = '#d0b4ff'
+const RAINBOW = ['#eb5f57', '#f58b57', '#fac35f', '#91c882', '#82aadc', '#9b82c8', '#c882b4']
+const DIM = '#999999'
+const FRAME_MS = 150
+// The status line's thresholds: green under half, yellow to 80%, red past it.
+const CONTEXT_OK = '#4eba65'
+const CONTEXT_HALF = '#ffc107'
+const CONTEXT_FULL = '#e86a6a'
+// A terminal cannot blend, so each pill's tint is its color mixed by hand into a dark theme's background.
+const PILL_BASE = '#2c2e39'
+const MODEL_PILL = '#3d4050'
 // `claude-opus-5-5`, `claude-haiku-4-5-20251001`: family, major, minor. Not the date.
 const MODEL_ID = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?!\d)/
 
 const info = atom({ plugin: 'reader', key: 'model' } as const, null, { shape: 'model-1' })
+const contextUsed = atom({ plugin: 'reader', key: 'contextUsed' } as const, null)
+// null at rest: nothing lit.
+const frame = atom({ plugin: 'reader', key: 'frame' } as const, null)
 
-/** Draws the model and effort at the right of the prompt footer: `Opus 5.5  ▰▰▰▰▱ xhigh`. */
+// Animates xhigh and max only while a turn runs: the spinner redraws then anyway, and an idle footer stays still.
+let ticking: Timer | undefined
+
+/** Draws three pills at the right of the prompt footer: the model, the effort as `/effort` colors it, the context used. */
 export function registerModel(on: On): void {
-  // Each request says what it really sent, past `--effort`, env vars and per-model settings.
+  // Each request says what it asked for, past `--effort`, env vars and per-model settings.
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined) {
-      const effort = e.effort === undefined ? null : String(e.effort)
-      await update($, info, () => ({ id: e.model, effort }))
+    if (e.agentId !== undefined) {
+      return yield* next(e)
+    }
+    const effort = e.effort === undefined ? null : String(e.effort)
+    await update($, info, () => ({ id: e.model, effort }))
+    await animate($, effort === 'xhigh' || effort === 'max')
+
+    const result = yield* next(e)
+    await readContext($)
+
+    return result
+  })
+
+  // A compacted or cleared conversation has no reading until its next request.
+  on('session.compact', async ($, e, next) => {
+    const compacted = await next(e)
+
+    if (e.agentId === undefined && e.trigger !== 'precompute') {
+      await update($, contextUsed, () => null)
     }
 
-    return yield* next(e)
+    return compacted
+  })
+
+  on('session.end', async ($, e, next) => {
+    const ended = await next(e)
+
+    if (e.reason === 'clear') {
+      await update($, contextUsed, () => null)
+    }
+
+    return ended
   })
 
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
@@ -31,27 +73,42 @@ export function registerModel(on: On): void {
     if (e.surface !== 'terminal' || shown === null) {
       return next(e)
     }
-    const { Box, Text } = $.ui.resolve(e)
-    const level = LEVELS.indexOf(shown.effort ?? '')
-    const meter = level === -1 ? null : (
-      <Text>
-        {'  '}
-        <Text color={TITLE_COLOR}>{FILLED.repeat(level + 1)}</Text>
-        <Text color={LINE_COLOR}>{EMPTY.repeat(LEVELS.length - level - 1)}</Text>
-      </Text>
-    )
+    const table = $.ui.resolve(e)
+    const { Box, Text } = table
+    const percent = await read($, contextUsed)
+    const tick = await read($, frame)
 
     return (
-      <Box flexDirection="row" gap={2}>
+      <Box flexDirection="row" gap={1}>
         {await next(e)}
-        <Text>
-          <Text bold color={BOLD_COLOR}>{modelLabel(shown.id)}</Text>
-          {meter}
-          {shown.effort === null ? null : <Text color={TITLE_COLOR}>{` ${shown.effort}`}</Text>}
-        </Text>
+        <Text bold backgroundColor={MODEL_PILL}>{` ${modelLabel(shown.id)} `}</Text>
+        {shown.effort === null ? null : effortPill(table, shown.effort, tick)}
+        {percent === null ? null : contextPill(table, percent)}
       </Box>
     )
   })
+}
+
+/** Until the first request: the effort `/effort` saved for this model, else the global one. */
+export async function startModel($: EngineInterface): Promise<void> {
+  const id = await $.session.model()
+  // `modelSettings` keys carry no context suffix: `claude-opus-5-5`, not `claude-opus-5-5[1m]`.
+  const key = id.replace(/\[.*\]$/, '')
+  const perModel = await $.settings.read({ key: 'modelSettings' })
+  const shared = await $.settings.read({ key: 'effortLevel' })
+  const saved = isRecord(perModel) && isRecord(perModel[key]) ? perModel[key].effortLevel : undefined
+  const effort = asText(saved) ?? asText(shared)
+
+  // A request since, or before a reload, knows better.
+  await update($, info, current => current ?? { id, effort })
+  await readContext($)
+}
+
+/** Stops the xhigh and max animation and puts out the lit letter; the turn that needed it is over. */
+export async function stopModelFrames($: EngineInterface): Promise<void> {
+  ticking?.cancel()
+  ticking = undefined
+  await update($, frame, () => null)
 }
 
 /** `claude-opus-5-5` reads `Opus 5.5`; anything else stays as given. */
@@ -67,18 +124,75 @@ export function modelLabel(id: string): string {
   return minor === undefined ? `${name} ${major}` : `${name} ${major}.${minor}`
 }
 
-/** Until the first request: the effort `/effort` saved for this model, else the global one. */
-export async function startModel($: EngineInterface): Promise<void> {
-  const id = await $.session.model()
-  // `modelSettings` keys carry no context suffix: `claude-opus-5-5`, not `claude-opus-5-5[1m]`.
-  const key = id.replace(/\[.*\]$/, '')
-  const perModel = await $.settings.read({ key: 'modelSettings' })
-  const shared = await $.settings.read({ key: 'effortLevel' })
-  const saved = isRecord(perModel) && isRecord(perModel[key]) ? perModel[key].effortLevel : undefined
-  const effort = asText(saved) ?? asText(shared)
+function effortPill({ Text }: Table, effort: string, tick: number | null) {
+  const level = LEVELS.indexOf(effort)
 
-  // A request since, or before a reload, knows better.
-  await update($, info, current => current ?? { id, effort })
+  // A number, which only internal builds send: no step of the picker to light.
+  if (level === -1) {
+    return <Text backgroundColor={MODEL_PILL}>{` ${effort} `}</Text>
+  }
+  const tint = mix(LEVEL_COLOR[effort] ?? RAINBOW[0] ?? DIM, PILL_BASE, 0.16)
+  const steps = [...'▰'.repeat(level + 1)]
+
+  return (
+    <Text backgroundColor={tint}>
+      {' '}
+      {steps.map((step, i) => <Text color={letterColor(effort, i, tick)}>{step}</Text>)}
+      <Text color={DIM}>{'▱'.repeat(LEVELS.length - level - 1)}</Text>
+      {' '}
+      {[...effort].map((letter, i) => <Text bold color={letterColor(effort, i, tick)}>{letter}</Text>)}
+      {' '}
+    </Text>
+  )
+}
+
+function contextPill({ Text }: Table, percent: number) {
+  const color = contextColor(percent)
+
+  return <Text backgroundColor={mix(color, PILL_BASE, 0.18)} color={color}>{` ${percent}% `}</Text>
+}
+
+function letterColor(effort: string, index: number, tick: number | null): string {
+  if (effort === 'max') {
+    return RAINBOW[((tick ?? 0) + index) % RAINBOW.length] ?? DIM
+  }
+  // One letter lit at a time, with a short pause after the sweep.
+  if (effort === 'xhigh' && tick !== null && tick % (effort.length + 3) === index) {
+    return XHIGH_LIGHT
+  }
+
+  return LEVEL_COLOR[effort] ?? DIM
+}
+
+function contextColor(percent: number): string {
+  if (percent >= 80) {
+    return CONTEXT_FULL
+  }
+  if (percent >= 50) {
+    return CONTEXT_HALF
+  }
+
+  return CONTEXT_OK
+}
+
+async function animate($: EngineInterface, isAnimated: boolean): Promise<void> {
+  if (!isAnimated) {
+    await stopModelFrames($)
+    return
+  }
+  ticking ??= $.clock.every(FRAME_MS, () => void update($, frame, tick => (tick ?? 0) + 1))
+}
+
+async function readContext($: EngineInterface): Promise<void> {
+  const { context } = await $.session.usage()
+  await update($, contextUsed, () => context.percent ?? null)
+}
+
+function mix(color: string, base: string, amount: number): string {
+  const channel = (hex: string, at: number) => parseInt(hex.slice(at, at + 2), 16)
+  const mixed = [1, 3, 5].map(at => Math.round(channel(color, at) * amount + channel(base, at) * (1 - amount)))
+
+  return `#${mixed.map(value => value.toString(16).padStart(2, '0')).join('')}`
 }
 
 function asText(value: unknown): string | null {

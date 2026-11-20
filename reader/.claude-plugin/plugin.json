@@ -1,1 +1,1 @@
-{ "name": "reader", "version": "0.2.0", "description": "Reads Claude's replies better in the terminal: colored prose, code cards, tables, flows, bars, a glossary, side explanations and the model and effort under the prompt", "types": "./types/index.d.ts" }
+{ "name": "reader", "version": "0.3.0", "description": "Reads Claude's replies better in the terminal: colored prose, code cards, tables, flows, bars, a glossary, side explanations and the model, effort and context used under the prompt", "types": "./types/index.d.ts" }

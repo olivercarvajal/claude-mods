@@ -17,6 +17,8 @@ declare module 'claude-code' {
       explanation: Shaped<Explanation | null>
       glossary: Shaped<Term[]>
       model: Shaped<ModelInfo | null>
+      contextUsed: number | null
+      frame: number | null
     }
   }
 }
