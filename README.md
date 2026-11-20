@@ -1,6 +1,6 @@
 # claude-mods
 
-Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and pills under the prompt with the model, the effort and the context used.
+Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and the model, effort and context used on the line under the prompt.
 
 Made for dark terminal themes. Built on Claude Code 2.1.329.
 
@@ -22,7 +22,7 @@ Paste this section to a Claude Code agent, or run it yourself.
    ```
 5. Run `claude plugin list` again. It must show `reader@oliver-mods` with `Status: ✔ enabled`.
 6. Tell the user to open a new chat, or to type `/reload-plugins` in each chat already open. An agent cannot run that command for them, and its own chat keeps the old look until then.
-7. Ask the user to check it in that chat. Pills with the model and the effort show at the right of the footer under the prompt, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
+7. Ask the user to check it in that chat. The model and the effort show on the line under the prompt, after the permission mode, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
 
 ### Update
 
@@ -111,13 +111,15 @@ An unlabeled fence drawn with box-drawing characters or arrows also gets gray li
 
 ### Model, effort and context under the prompt
 
-Three pills at the right of the footer under the prompt:
+On the line under the prompt. Claude Code draws the permission mode first (`⏵⏵ bypass permissions on`) and no mod can move it, so the mod drops the `(shift+tab to cycle)` reminder after it and adds, in order:
 
-- The model.
-- The effort of the last request, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
-- The context used, green under 50%, yellow to 80%, red past it. It shows from the first request on.
+- The model, in gray.
+- The effort of the last request in a round pill, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
+- The context used in a round pill, green under 50%, yellow from 50%, red from 80%. It shows from the first request on, and clears after `/compact` or `/clear` until the next one.
 
-Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the pills update with the next request. The pill tints are mixed for a `#2c2e39` background.
+Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the line updates with the next request. It stays one line while a permission mode shows. In the default mode there is no reminder to drop, and Claude Code keeps its own line and puts this one under it. The rest of that line (`← 1 agent`) is drawn as plain text, so the agents pill stops responding to clicks and loses its ↓ highlight.
+
+The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
 
 **Without reader**
 
@@ -125,7 +127,7 @@ Until the first request the effort is the one `/effort` saved in your settings. 
 
 **With reader**
 
-![The "Hard to follow?" band above the prompt, and three pills under it: "Opus 5.5", four of five purple steps with "xhigh", and a green "7%"](docs/reader-footer-after.png)
+![The "Hard to follow?" band above the prompt, and one line under it: "auto mode on · ← 1 agent", then "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", and a round green "7%"](docs/reader-footer-after.png)
 
 ### "Hard to follow?" band
 
