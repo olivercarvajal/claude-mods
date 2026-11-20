@@ -1,0 +1,5 @@
+{
+  "name": "oliver-mods",
+  "owner": { "name": "olivercarvajal" },
+  "plugins": [{ "name": "reader", "source": "./reader" }]
+}

@@ -1,0 +1,1 @@
+{ "name": "reader", "version": "0.1.2", "description": "Reads Claude's replies better in the terminal: colored prose, code cards, tables, flows, bars, a glossary and side explanations", "types": "./types/index.d.ts" }
