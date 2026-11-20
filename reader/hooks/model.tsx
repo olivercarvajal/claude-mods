@@ -17,7 +17,15 @@ const CONTEXT_HALF = '#ffc107'
 const CONTEXT_FULL = '#e86a6a'
 // A terminal cannot blend, so each pill's tint is its color mixed by hand into a dark theme's background.
 const PILL_BASE = '#2c2e39'
-const MODEL_PILL = '#3d4050'
+const NUMBER_PILL = '#3d4050'
+// Nerd Font half circles (U+E0B6, U+E0B4) drawn in the pill's tint round its ends.
+const CAP_LEFT = '\ue0b6'
+const CAP_RIGHT = '\ue0b4'
+// Claude Code draws the mode label (`⏵⏵ bypass permissions on`) before this line and no mod can touch it.
+// Stripping this reminder is what puts the engine in rewrite mode: it hides its own line and draws the label,
+// ` · ` and this site on one row. With nothing to strip (default mode) the site gets a row of its own.
+// The price: the rewritten hint is plain text, so the agents pill loses its click and ↓ highlight.
+const CYCLE_REMINDER = /\([^)]*to cycle\)(?: · )?/
 // `claude-opus-5-5`, `claude-haiku-4-5-20251001`: family, major, minor. Not the date.
 const MODEL_ID = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?!\d)/
 
@@ -29,7 +37,7 @@ const frame = atom({ plugin: 'reader', key: 'frame' } as const, null)
 // Animates xhigh and max only while a turn runs: the spinner redraws then anyway, and an idle footer stays still.
 let ticking: Timer | undefined
 
-/** Draws three pills at the right of the prompt footer: the model, the effort as `/effort` colors it, the context used. */
+/** Draws the model, the effort as `/effort` colors it and the context used at the right of the line under the prompt. */
 export function registerModel(on: On): void {
   // Each request says what it asked for, past `--effort`, env vars and per-model settings.
   on('turn.step', async function* ($, e, next) {
@@ -67,7 +75,8 @@ export function registerModel(on: On): void {
     return ended
   })
 
-  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+  // The site is as wide as what it holds, so ours follows the hint instead of sitting at the right edge.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const shown = await read($, info)
 
     if (e.surface !== 'terminal' || shown === null) {
@@ -77,13 +86,16 @@ export function registerModel(on: On): void {
     const { Box, Text } = table
     const percent = await read($, contextUsed)
     const tick = await read($, frame)
+    const hint = e.props.hint.replace(CYCLE_REMINDER, '')
 
     return (
-      <Box flexDirection="row" gap={1}>
-        {await next(e)}
-        <Text bold backgroundColor={MODEL_PILL}>{` ${modelLabel(shown.id)} `}</Text>
-        {shown.effort === null ? null : effortPill(table, shown.effort, tick)}
-        {percent === null ? null : contextPill(table, percent)}
+      <Box flexDirection="row" gap={hint === '' ? 0 : 3}>
+        {await next({ ...e, props: { ...e.props, hint } })}
+        <Box flexDirection="row" gap={1} flexShrink={0}>
+          <Text color={DIM}>{modelLabel(shown.id)}</Text>
+          {shown.effort === null ? null : effortPill(table, shown.effort, tick)}
+          {percent === null ? null : contextPill(table, percent)}
+        </Box>
       </Box>
     )
   })
@@ -124,32 +136,44 @@ export function modelLabel(id: string): string {
   return minor === undefined ? `${name} ${major}` : `${name} ${major}.${minor}`
 }
 
-function effortPill({ Text }: Table, effort: string, tick: number | null) {
+function effortPill(table: Table, effort: string, tick: number | null) {
+  const { Text } = table
   const level = LEVELS.indexOf(effort)
 
   // A number, which only internal builds send: no step of the picker to light.
   if (level === -1) {
-    return <Text backgroundColor={MODEL_PILL}>{` ${effort} `}</Text>
+    return pill(table, NUMBER_PILL, <Text>{effort}</Text>)
   }
   const tint = mix(LEVEL_COLOR[effort] ?? RAINBOW[0] ?? DIM, PILL_BASE, 0.16)
   const steps = [...'▰'.repeat(level + 1)]
 
-  return (
-    <Text backgroundColor={tint}>
-      {' '}
+  return pill(
+    table,
+    tint,
+    <Text>
       {steps.map((step, i) => <Text color={letterColor(effort, i, tick)}>{step}</Text>)}
       <Text color={DIM}>{'▱'.repeat(LEVELS.length - level - 1)}</Text>
       {' '}
       {[...effort].map((letter, i) => <Text bold color={letterColor(effort, i, tick)}>{letter}</Text>)}
-      {' '}
-    </Text>
+    </Text>,
   )
 }
 
-function contextPill({ Text }: Table, percent: number) {
+function contextPill(table: Table, percent: number) {
+  const { Text } = table
   const color = contextColor(percent)
 
-  return <Text backgroundColor={mix(color, PILL_BASE, 0.18)} color={color}>{` ${percent}% `}</Text>
+  return pill(table, mix(color, PILL_BASE, 0.18), <Text color={color}>{`${percent}%`}</Text>)
+}
+
+function pill({ Text }: Table, tint: string, content: ReturnType<Table['Text']>) {
+  return (
+    <Text>
+      <Text color={tint}>{CAP_LEFT}</Text>
+      <Text backgroundColor={tint}>{content}</Text>
+      <Text color={tint}>{CAP_RIGHT}</Text>
+    </Text>
+  )
 }
 
 function letterColor(effort: string, index: number, tick: number | null): string {

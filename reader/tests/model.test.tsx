@@ -14,7 +14,12 @@ const usage = (percent?: number) => ({ value: { startedAt: 0, context: { window:
 
 const SUMMARY = { role: 'user' as const, text: 'Summary of the conversation so far', toolUses: [] }
 
-const FOOTER = { plugin: 'reader', surface: 'terminal', component: 'SessionMode', props: { modes: [] } } as const
+const FOOTER = {
+  plugin: 'reader',
+  surface: 'terminal',
+  component: 'PromptHint',
+  props: { isDraft: false, isWorking: false, hint: '(shift+tab to cycle) · ← 1 agent' },
+} as const
 
 test('model ids read as their names', () => {
   expect(modelLabel('claude-opus-5-5')).toBe('Opus 5.5')
@@ -36,8 +41,8 @@ test('the pills show the saved effort until a request says otherwise, and the co
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
 
   const ui = await $.ui.mount(FOOTER)
-  expect(await ui.find({ type: 'Text', text: ' Opus 5.5 ' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: / ▰▰▱▱▱ medium / })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /▰▰▱▱▱ medium/ })).toBeDefined()
   // No reading before the first request: no context pill.
   expect(await ui.find({ type: 'Text', text: /%/ })).toBeUndefined()
 
@@ -45,8 +50,8 @@ test('the pills show the saved effort until a request says otherwise, and the co
   for await (const chunk of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'high', messageCount: 1 })) {
     void chunk
   }
-  expect(await ui.find({ type: 'Text', text: / ▰▰▰▱▱ high / })).toBeDefined()
-  const context = (await ui.findAll({ type: 'Text', text: ' 84% ' })).at(-1)
+  expect(await ui.find({ type: 'Text', text: /▰▰▰▱▱ high/ })).toBeDefined()
+  const context = (await ui.findAll({ type: 'Text', text: '84%' })).at(-1)
   expect(context?.props.color).toBe('#e86a6a')
   await ui.unmount()
 })
@@ -65,9 +70,9 @@ test("a subagent's request leaves the pills alone", async ($, on) => {
     void chunk
   }
   const ui = await $.ui.mount(FOOTER)
-  expect(await ui.find({ type: 'Text', text: ' Opus 5.5 ' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: / ▰▰▰▱▱ high / })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: ' 12% ' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /▰▰▰▱▱ high/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '12%' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -81,7 +86,7 @@ test('a model without effort shows no effort pill', async ($, on) => {
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
 
   const ui = await $.ui.mount(FOOTER)
-  expect(await ui.find({ type: 'Text', text: ' Haiku 4.5 ' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Haiku 4.5' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /▰/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -99,9 +104,36 @@ test('an idle xhigh lights no letter, and compaction drops the context reading',
   const ui = await $.ui.mount(FOOTER)
   const letters = await ui.findAll({ type: 'Text', text: /^[xhig]$/ })
   expect(letters.map(letter => letter.props.color)).toEqual(['#af87ff', '#af87ff', '#af87ff', '#af87ff', '#af87ff'])
-  expect(await ui.find({ type: 'Text', text: ' 64% ' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '64%' })).toBeDefined()
 
   await $.session.compact({ trigger: 'manual', messages: [SUMMARY, SUMMARY] })
   expect(await ui.find({ type: 'Text', text: /%/ })).toBeUndefined()
   await ui.unmount()
+})
+
+test('the line keeps the engine hint without the shift+tab reminder', async ($, on) => {
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('settings.read', () => ({ value: {} }))
+  on('session.usage', () => usage(20))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('store.get', () => ({ value: undefined }))
+  on('ui.log', () => ({ value: undefined }))
+  // Stands for the engine's own line: it draws whatever hint reaches it.
+  on('ui.render', { component: 'PromptHint' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+
+    return <Text>{e.props.hint}</Text>
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  const ui = await $.ui.mount(FOOTER)
+  expect(await ui.find({ type: 'Text', text: '← 1 agent' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
+  await ui.unmount()
+
+  // The idle line in a permission mode is the reminder alone: nothing of it is left.
+  const bare = await $.ui.mount({ ...FOOTER, props: { ...FOOTER.props, hint: '(shift+tab to cycle)' } })
+  expect(await bare.find({ type: 'Text', text: 'shift+tab' })).toBeUndefined()
+  expect(await bare.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
+  await bare.unmount()
 })
