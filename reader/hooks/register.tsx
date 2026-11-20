@@ -3,7 +3,7 @@ import type { CommandSpec, EngineInterface, ModelEffort, Register } from 'claude
 
 import { splitReply, termsIn } from './blocks'
 import { drawBlocks, LINE_COLOR } from './draw'
-import { registerModel, startModel, stopModelFrames } from './model'
+import { modelRow, registerModel, startModel, stopModelFrames } from './model'
 import type { Term } from '../types'
 
 const PANE = 'reader'
@@ -171,31 +171,44 @@ export const register: Register = on => {
     )
   })
 
+  // Our row above the prompt: the model, effort and context on the left, "Hard to follow?" on the right when offered.
   // Letter hotkeys only: a bare digit in an empty prompt would press a band button,
   // and this user answers decisions by number.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const isQuiet = e.surface !== 'terminal' || e.props.hasSurvey || e.props.isWorking
-
-    if (isQuiet || !(await read($, isOffering))) {
+    if (e.surface !== 'terminal' || e.props.hasSurvey) {
       return next(e)
     }
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const table = $.ui.resolve(e)
+    const { Box, Button, Text } = table
+    const model = await modelRow($, table)
+    const isOffered = !e.props.isWorking && (await read($, isOffering))
+
+    if (model === null && !isOffered) {
+      return next(e)
+    }
 
     return (
-      <Box flexDirection="row" gap={1}>
-        <Text color={LINE_COLOR}>Hard to follow?</Text>
-        <Button
-          key="short"
-          label="Short version"
-          hotkey="s"
-          onPress={() => void askAside($, 'Short version of the last reply', SHORT_PROMPT, 'low')}
-        />
-        <Button
-          key="zero"
-          label="From zero"
-          hotkey="z"
-          onPress={() => void askAside($, 'The last reply, from zero', FROM_ZERO_PROMPT, 'medium')}
-        />
+      // marginTop: the engine leaves a blank row under the band but none above it, so the row hugged the reply.
+      // Narrower than both sides (about 76 columns), "Hard to follow?" wraps to a row of its own.
+      <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2} marginTop={1} width={e.props.bodyColumns}>
+        {model ?? <Text> </Text>}
+        {isOffered ? (
+          <Box flexDirection="row" gap={1} flexShrink={0}>
+            <Text color={LINE_COLOR}>Hard to follow?</Text>
+            <Button
+              key="short"
+              label="Short version"
+              hotkey="s"
+              onPress={() => void askAside($, 'Short version of the last reply', SHORT_PROMPT, 'low')}
+            />
+            <Button
+              key="zero"
+              label="From zero"
+              hotkey="z"
+              onPress={() => void askAside($, 'The last reply, from zero', FROM_ZERO_PROMPT, 'medium')}
+            />
+          </Box>
+        ) : null}
       </Box>
     )
   })

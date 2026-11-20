@@ -11,21 +11,18 @@ const XHIGH_LIGHT = '#d0b4ff'
 const RAINBOW = ['#eb5f57', '#f58b57', '#fac35f', '#91c882', '#82aadc', '#9b82c8', '#c882b4']
 const DIM = '#999999'
 const FRAME_MS = 150
-// The status line's thresholds: green under half, yellow to 80%, red past it.
+// Answers get worse well before the window fills: yellow means think about /compact, red means do it.
 const CONTEXT_OK = '#4eba65'
-const CONTEXT_HALF = '#ffc107'
-const CONTEXT_FULL = '#e86a6a'
+const CONTEXT_WATCH = '#ffc107'
+const CONTEXT_COMPACT = '#e86a6a'
+const WATCH_FROM = 30
+const COMPACT_FROM = 60
 // A terminal cannot blend, so each pill's tint is its color mixed by hand into a dark theme's background.
 const PILL_BASE = '#2c2e39'
 const NUMBER_PILL = '#3d4050'
 // Nerd Font half circles (U+E0B6, U+E0B4) drawn in the pill's tint round its ends.
 const CAP_LEFT = '\ue0b6'
 const CAP_RIGHT = '\ue0b4'
-// Claude Code draws the mode label (`⏵⏵ bypass permissions on`) before this line and no mod can touch it.
-// Stripping this reminder is what puts the engine in rewrite mode: it hides its own line and draws the label,
-// ` · ` and this site on one row. With nothing to strip (default mode) the site gets a row of its own.
-// The price: the rewritten hint is plain text, so the agents pill loses its click and ↓ highlight.
-const CYCLE_REMINDER = /\([^)]*to cycle\)(?: · )?/
 // `claude-opus-5-5`, `claude-haiku-4-5-20251001`: family, major, minor. Not the date.
 const MODEL_ID = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?!\d)/
 
@@ -37,7 +34,7 @@ const frame = atom({ plugin: 'reader', key: 'frame' } as const, null)
 // Animates xhigh and max only while a turn runs: the spinner redraws then anyway, and an idle footer stays still.
 let ticking: Timer | undefined
 
-/** Draws the model, the effort as `/effort` colors it and the context used at the right of the line under the prompt. */
+/** Keeps the model, the effort and the context used current; `modelRow` draws them. */
 export function registerModel(on: On): void {
   // Each request says what it asked for, past `--effort`, env vars and per-model settings.
   on('turn.step', async function* ($, e, next) {
@@ -74,31 +71,26 @@ export function registerModel(on: On): void {
 
     return ended
   })
+}
 
-  // The site is as wide as what it holds, so ours follows the hint instead of sitting at the right edge.
-  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
-    const shown = await read($, info)
+/** The model, the effort as `/effort` colors it and the context used, in one row; null before anything is known. */
+export async function modelRow($: EngineInterface, table: Table) {
+  const shown = await read($, info)
 
-    if (e.surface !== 'terminal' || shown === null) {
-      return next(e)
-    }
-    const table = $.ui.resolve(e)
-    const { Box, Text } = table
-    const percent = await read($, contextUsed)
-    const tick = await read($, frame)
-    const hint = e.props.hint.replace(CYCLE_REMINDER, '')
+  if (shown === null) {
+    return null
+  }
+  const { Box, Text } = table
+  const percent = await read($, contextUsed)
+  const tick = await read($, frame)
 
-    return (
-      <Box flexDirection="row" gap={hint === '' ? 0 : 3}>
-        {await next({ ...e, props: { ...e.props, hint } })}
-        <Box flexDirection="row" gap={1} flexShrink={0}>
-          <Text color={DIM}>{modelLabel(shown.id)}</Text>
-          {shown.effort === null ? null : effortPill(table, shown.effort, tick)}
-          {percent === null ? null : contextPill(table, percent)}
-        </Box>
-      </Box>
-    )
-  })
+  return (
+    <Box flexDirection="row" gap={1} flexShrink={0}>
+      <Text color={DIM}>{modelLabel(shown.id)}</Text>
+      {shown.effort === null ? null : effortPill(table, shown.effort, tick)}
+      {percent === null ? null : contextPill(table, percent)}
+    </Box>
+  )
 }
 
 /** Until the first request: the effort `/effort` saved for this model, else the global one. */
@@ -189,11 +181,11 @@ function letterColor(effort: string, index: number, tick: number | null): string
 }
 
 function contextColor(percent: number): string {
-  if (percent >= 80) {
-    return CONTEXT_FULL
+  if (percent >= COMPACT_FROM) {
+    return CONTEXT_COMPACT
   }
-  if (percent >= 50) {
-    return CONTEXT_HALF
+  if (percent >= WATCH_FROM) {
+    return CONTEXT_WATCH
   }
 
   return CONTEXT_OK

@@ -17,8 +17,16 @@ const SUMMARY = { role: 'user' as const, text: 'Summary of the conversation so f
 const FOOTER = {
   plugin: 'reader',
   surface: 'terminal',
-  component: 'PromptHint',
-  props: { isDraft: false, isWorking: false, hint: '(shift+tab to cycle) · ← 1 agent' },
+  component: 'AbovePrompt',
+  props: {
+    hasSurvey: false,
+    isCollapsed: false,
+    isWorking: false,
+    maxRows: 10,
+    bodyColumns: 78,
+    scroll: { offset: 0, bodyRows: 10 },
+    view: {},
+  },
 } as const
 
 test('model ids read as their names', () => {
@@ -29,7 +37,7 @@ test('model ids read as their names', () => {
   expect(modelLabel('opus')).toBe('opus')
 })
 
-test('the pills show the saved effort until a request says otherwise, and the context used', async ($, on) => {
+test('the row shows the saved effort until a request says otherwise, and the context used', async ($, on) => {
   let percent: number | undefined
   on('session.model', () => ({ value: 'claude-opus-5-5[1m]' }))
   on('settings.read', () => ({ value: { effortLevel: 'high', modelSettings: { 'claude-opus-5-5': { effortLevel: 'medium' } } } }))
@@ -56,7 +64,7 @@ test('the pills show the saved effort until a request says otherwise, and the co
   await ui.unmount()
 })
 
-test("a subagent's request leaves the pills alone", async ($, on) => {
+test("a subagent's request leaves the row alone", async ($, on) => {
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('settings.read', () => ({ value: { effortLevel: 'high' } }))
   on('session.usage', () => usage(12))
@@ -111,29 +119,30 @@ test('an idle xhigh lights no letter, and compaction drops the context reading',
   await ui.unmount()
 })
 
-test('the line keeps the engine hint without the shift+tab reminder', async ($, on) => {
+test('the context turns yellow from 30% and red from 60%', async ($, on) => {
+  let percent = 29
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('settings.read', () => ({ value: {} }))
-  on('session.usage', () => usage(20))
+  on('session.usage', () => usage(percent))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('store.get', () => ({ value: undefined }))
   on('ui.log', () => ({ value: undefined }))
-  // Stands for the engine's own line: it draws whatever hint reaches it.
-  on('ui.render', { component: 'PromptHint' }, ($, e) => {
-    const { Text } = $.ui.resolve(e)
+  on('turn.step', engineStep)
+  const colorAt = async (value: number) => {
+    percent = value
+    for await (const chunk of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })) {
+      void chunk
+    }
+    const ui = await $.ui.mount(FOOTER)
+    const color = (await ui.findAll({ type: 'Text', text: `${value}%` })).at(-1)?.props.color
+    await ui.unmount()
 
-    return <Text>{e.props.hint}</Text>
-  })
+    return color
+  }
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
 
-  const ui = await $.ui.mount(FOOTER)
-  expect(await ui.find({ type: 'Text', text: '← 1 agent' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
-  await ui.unmount()
-
-  // The idle line in a permission mode is the reminder alone: nothing of it is left.
-  const bare = await $.ui.mount({ ...FOOTER, props: { ...FOOTER.props, hint: '(shift+tab to cycle)' } })
-  expect(await bare.find({ type: 'Text', text: 'shift+tab' })).toBeUndefined()
-  expect(await bare.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
-  await bare.unmount()
+  expect(await colorAt(29)).toBe('#4eba65')
+  expect(await colorAt(30)).toBe('#ffc107')
+  expect(await colorAt(59)).toBe('#ffc107')
+  expect(await colorAt(60)).toBe('#e86a6a')
 })
