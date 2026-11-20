@@ -5,6 +5,9 @@ export type Explanation = { subject: string; text: string }
 
 export type ReaderView = 'explain' | 'terms'
 
+/** The main loop's model id and the effort its last request sent; `effort` is null on a model without one. */
+export type ModelInfo = { id: string; effort: string | null }
+
 declare module 'claude-code' {
   interface PluginState {
     reader: {
@@ -13,6 +16,7 @@ declare module 'claude-code' {
       isOffering: boolean
       explanation: Shaped<Explanation | null>
       glossary: Shaped<Term[]>
+      model: Shaped<ModelInfo | null>
     }
   }
 }

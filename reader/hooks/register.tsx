@@ -3,6 +3,7 @@ import type { CommandSpec, EngineInterface, ModelEffort, Register } from 'claude
 
 import { splitReply, termsIn } from './blocks'
 import { drawBlocks, LINE_COLOR } from './draw'
+import { registerModel, startModel } from './model'
 import type { Term } from '../types'
 
 const PANE = 'reader'
@@ -72,6 +73,8 @@ const COMMANDS: CommandSpec[] = [
 ]
 
 export const register: Register = on => {
+  registerModel(on)
+
   on('session.start', async ($, e, next) => {
     const stored = await $.store.get(GLOSSARY_KEY)
 
@@ -87,6 +90,7 @@ export const register: Register = on => {
         $.ui.log(`reader: /${command.name} is not available: ${String(error)}`)
       }
     }
+    await startModel($)
 
     return next(e)
   })
