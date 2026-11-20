@@ -1,6 +1,6 @@
 # claude-mods
 
-Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, and a glossary that lasts across sessions.
+Mods for Claude Code. One so far: **reader**. It redraws Claude's replies in the terminal so they read faster: colors, aligned tables, flow diagrams, bar charts, status lists with icons, a glossary that lasts across sessions, and the model and effort you are working with under the prompt.
 
 Made for dark terminal themes. Built on Claude Code 2.1.329.
 
@@ -22,7 +22,7 @@ Paste this section to a Claude Code agent, or run it yourself.
    ```
 5. Run `claude plugin list` again. It must show `reader@oliver-mods` with `Status: ✔ enabled`.
 6. Tell the user to open a new chat, or to type `/reload-plugins` in each chat already open. An agent cannot run that command for them, and its own chat keeps the old look until then.
-7. Ask the user to check it in that chat with a prompt like "show 800 KB and 400 KB as bars". A gray card with blue bars means it works.
+7. Ask the user to check it in that chat. The model and effort show at the right of the line under the prompt, and a prompt like "show 800 KB and 400 KB as bars" draws a gray card with blue bars.
 
 ### Update
 
@@ -41,7 +41,9 @@ claude plugin uninstall reader@oliver-mods
 
 ## What you get
 
-### Colors
+Every image below comes from a real Claude Code session, 78 columns wide. Claude got the same prompt twice, once with the mod off and once with it on.
+
+### Colors and tables
 
 | Element | Color |
 | --- | --- |
@@ -52,111 +54,76 @@ claude plugin uninstall reader@oliver-mods
 | Code blocks | on a `#383b45` card, language name on top |
 | List markers, table lines, arrows | the theme's subtle gray |
 
-Pipe tables line up in columns with `│` and `─┼─`, headers in pink. A table wider than the terminal falls back to Claude Code's own table.
+Pipe tables line up in columns, headers in pink, numbers aligned the way the table says. A table wider than the terminal falls back to Claude Code's own.
+
+**Without reader**
+
+![A heading, a paragraph with bold and inline code, and a boxed table, all in plain white](docs/reader-prose-before.png)
+
+**With reader**
+
+![The same reply with a pink heading, a blue bold label, cream inline code and a compact table with pink headers](docs/reader-prose-after.png)
 
 ### Four new blocks
 
-The mod adds a short section to Claude's system prompt that teaches it four fenced blocks and when to use each. Below, what Claude writes and roughly what you see (colors left out).
+The mod adds a short section to Claude's system prompt that teaches it four fenced blocks and when to use each:
 
-#### `flow`: something that moves across systems or steps
+- `flow` for anything that moves across two or more systems or steps.
+- `bars` for three or more numbers to compare. A `limit:` line draws the cap and turns the bars past it red.
+- `status` for PRs, tasks or releases in order. "in progress" moves on its own, "needs you" waits on you.
+- `terms` for names a reply leans on that you have not seen yet. Each one is saved to a glossary (up to 300, newest first) that `/terms` shows.
 
-````
-```flow
-app: user taps Save
--> POST /notes
-api: checks the session
-  writes the row
-postgres: notes table
-```
-````
+Without the mod, Claude Code prints those blocks as plain text.
 
-```
-╭────────────────╮
-│ app            │
-│ user taps Save │
-╰────────────────╯
-  │  POST /notes
-  ▼
-╭────────────────────╮
-│ api                │
-│ checks the session │
-│ writes the row     │
-╰────────────────────╯
-  │
-  ▼
-╭─────────────╮
-│ postgres    │
-│ notes table │
-╰─────────────╯
-```
+#### flow
 
-Node names are blue, arrow labels cream and italic.
+**Without reader**
 
-#### `bars`: three or more numbers to compare
+![A fenced block labeled flow with lines like "app: user taps Save" and "-> POST /notes"](docs/reader-flow-before.png)
 
-````
-```bars
-before: 800 KB
-after: 400 KB
-limit: 600
-```
-````
+**With reader**
 
-```
-before  ████████████████████████████████████████ 800 KB
-after   ████████████████████                     400 KB
-limit   ─────────────────────────────┤           600 KB
-```
+![Three rounded boxes named app, api and postgres, joined by arrows, the first arrow labeled POST /notes](docs/reader-flow-after.png)
 
-Bars are blue on a card. With a `limit:` line, the bars past it turn red.
+#### bars and status
 
-#### `status`: PRs, tasks or releases in order
+**Without reader**
 
-````
-```status
-done: Parser for the new blocks
-deployed: v0.1.2 on GitHub
-in progress: Tests on CI
-needs you: Pick a name for the pane
-open: Light theme
-blocked: Screenshots, waiting on the light theme
-todo: Windows check
-```
-````
+![Fenced blocks labeled bars and status with plain "label: value" lines](docs/reader-bars-before.png)
 
-```
-  1. ✅ done        Parser for the new blocks
-  2. 🚀 deployed    v0.1.2 on GitHub
-  3. ⏳ in progress Tests on CI
-  4. 👉 needs you   Pick a name for the pane
-  5. 📂 open        Light theme
-  6. ⛔ blocked     Screenshots, waiting on the light theme
-  7. 📝 todo        Windows check
-```
+**With reader**
 
-Each state has its own color. "in progress" means it moves on its own; "needs you" means it waits on you.
+![A gray card with a red bar for 800 KB past a 600 KB limit line and a blue bar for 400 KB, then a numbered list with an icon and a colored state per line](docs/reader-bars-after.png)
 
-#### `terms`: names a reply leans on that you have not seen yet
+#### terms and diff sizes
 
-````
-```terms
-fork: a side call to the model over the same transcript
-store: the mod's storage, kept across sessions
-```
-````
+An unlabeled fence with counts like `+51 -1` draws the `+` numbers green and the `-` numbers red.
 
-```
-Terms
-fork: a side call to the model over the same transcript
-store: the mod's storage, kept across sessions
-```
+**Without reader**
 
-Terms are pink on a card. Every one is saved to a glossary (up to 300, newest first). `/terms` shows it.
+![A terms block and two diff-size lines in plain text](docs/reader-terms-before.png)
 
-### Two blocks it spots on its own
+**With reader**
 
-- An unlabeled fence with counts like `+51 -1` draws the `+` numbers green and the `-` numbers red. Handy for diff sizes.
-- An unlabeled fence drawn with box-drawing characters or arrows gets gray lines, blue node names and cream labels.
+![A gray Terms card with each term in pink, then a card with green plus counts and red minus counts](docs/reader-terms-after.png)
+
+An unlabeled fence drawn with box-drawing characters or arrows also gets gray lines, blue node names and cream labels.
+
+### Model and effort under the prompt
+
+The right end of the line under the prompt shows the model and the effort of the last request: five steps from `low` to `max`. Until the first request it reads the effort `/effort` saved in your settings. After `/model` or `/effort` it updates with the next request.
+
+**Without reader**
+
+![The prompt and the line under it with only the permission mode](docs/reader-footer-before.png)
+
+**With reader**
+
+![The "Hard to follow?" band above the prompt, and "Opus 5.5" with four of five pink steps and "xhigh" at the right of the line under it](docs/reader-footer-after.png)
+
+### "Hard to follow?" band
+
+After a reply longer than 20 lines, or with 4 or more inline code names, a band shows above the prompt (top of the image above). `s` asks for the short version, `z` for an explanation from zero with an example. Both answer in the Reader pane. The hotkeys are letters so a digit typed as an answer never presses a button.
 
 ### Commands
 
@@ -167,16 +134,6 @@ Terms are pink on a card. Every one is saved to a glossary (up to 300, newest fi
 | `/terms` | Opens the glossary in the Reader pane |
 
 The pane answers come from a fork of the model over the same transcript. The main chat never sees them.
-
-### "Hard to follow?" band
-
-After a reply longer than 20 lines, or with 4 or more inline code names, a band shows above the prompt:
-
-```
-Hard to follow?  [Short version]  [From zero]
-```
-
-`s` asks for the short version, `z` for an explanation from zero with an example. Both answer in the Reader pane. The hotkeys are letters so a digit typed as an answer never presses a button.
 
 ## Notes
 
