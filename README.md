@@ -145,6 +145,10 @@ The pane answers come from a fork of the model over the same transcript. The mai
 
 ![A reply with a flow, bars, a status list and terms on the left; on the right the Reader pane with "Short version of the last reply" in five lines](docs/reader-short-after.png)
 
+### Compaction keeps the last two exchanges
+
+`/compact` and auto-compaction summarize everything but your last two prompts. Those two come back after the summary word for word, each with Claude's text replies joined into one message, tool calls and results left out. To compact earlier than the default, set `autoCompactWindow` in your settings: compaction runs about 33k tokens before that number.
+
 ## Notes
 
 - `Mía:` and `Mi recomendación:` are Spanish because my replies read that way. Change `INLINE_MARK` and `PICK` in `reader/hooks/blocks.ts` for your language.

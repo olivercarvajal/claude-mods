@@ -75,10 +75,10 @@ export function registerModel(on: On): void {
   })
 
   // A compacted or cleared conversation has no reading until its next request.
-  on('session.compact', async ($, e, next) => {
+  on('session.compact', { trigger: ['manual', 'auto', 'plugin'] }, async ($, e, next) => {
     const compacted = await next(e)
 
-    if (e.agentId === undefined && e.trigger !== 'precompute') {
+    if (e.agentId === undefined) {
       await update($, contextUsed, () => null)
     }
 

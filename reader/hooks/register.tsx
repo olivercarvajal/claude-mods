@@ -3,6 +3,7 @@ import type { CommandSpec, EngineInterface, ModelEffort, Register } from 'claude
 
 import { splitReply, termsIn } from './blocks'
 import { drawBlocks } from './draw'
+import { registerCompact } from './compact'
 import { modelRow, registerModel, startModel, stopModelFrames } from './model'
 import type { Term } from '../types'
 
@@ -79,6 +80,7 @@ const COMMANDS: CommandSpec[] = [
 
 export const register: Register = on => {
   registerModel(on)
+  registerCompact(on)
 
   on('session.start', async ($, e, next) => {
     const stored = await $.store.get(GLOSSARY_KEY)
