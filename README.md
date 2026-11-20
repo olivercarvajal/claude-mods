@@ -117,7 +117,7 @@ A row right above the prompt, with a blank row over it so it does not touch the 
 - The effort of the last request in a round pill, in the colors of the `/effort` picker: five steps from `low` to `max`. While Claude works, `xhigh` shimmers and `max` cycles a rainbow, as in the picker.
 - The context used in a round pill: green under 30%, yellow from 30%, red from 60%. Answers get worse well before the window fills, so yellow means think about `/compact` or `/clear` and red means do it. It shows from the first request on, and clears after `/compact` or `/clear` until the next one.
 
-"Hard to follow?" shares the row, on the right, and moves to a row of its own in a terminal narrower than about 80 columns. Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the row updates with the next request. The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
+Until the first request the effort is the one `/effort` saved in your settings. After `/model` or `/effort` the row updates with the next request. The round ends are the Nerd Font half circles `U+E0B6` and `U+E0B4`: xterm.js terminals draw them on their own, other terminals need a Nerd Font. The pill tints are mixed for a `#2c2e39` background.
 
 **Without reader**
 
@@ -125,11 +125,7 @@ A row right above the prompt, with a blank row over it so it does not touch the 
 
 **With reader**
 
-![A row above the prompt: "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", a round green "7%", and under it "Hard to follow?" with its two buttons](docs/reader-footer-after.png)
-
-### "Hard to follow?" band
-
-After a reply longer than 20 lines, or with 4 or more inline code names, "Hard to follow?" shows at the right of that row (in the image above). `s` asks for the short version, `z` for an explanation from zero with an example. Both answer in the Reader pane. The hotkeys are letters so a digit typed as an answer never presses a button.
+![A row above the prompt: "Opus 5.5" in gray, a round purple pill with four of five steps and "xhigh", a round green "7%", and the engine's [-] mark above the row](docs/reader-footer-after.png)
 
 ### Commands
 
@@ -138,8 +134,12 @@ After a reply longer than 20 lines, or with 4 or more inline code names, "Hard t
 | `/explain [question]` | Explains the question, or the text you selected in the chat, in a Reader pane next to the chat |
 | `/catchup` | Recaps the session from the start: goal, what is decided, open items numbered, a status block, what comes next |
 | `/terms` | Opens the glossary in the Reader pane |
+| `/short` | Says the last reply again in a few lines, in the Reader pane |
+| `/zero` | Explains the last reply from zero, with an example, in the Reader pane |
 
 The pane answers come from a fork of the model over the same transcript. The main chat never sees them.
+
+![A reply with a flow, bars, a status list and terms on the left; on the right the Reader pane with "Short version of the last reply" in five lines](docs/reader-short-after.png)
 
 ## Notes
 

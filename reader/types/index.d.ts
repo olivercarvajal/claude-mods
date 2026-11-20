@@ -13,7 +13,6 @@ declare module 'claude-code' {
     reader: {
       view: ReaderView
       isExplaining: boolean
-      isOffering: boolean
       explanation: Shaped<Explanation | null>
       glossary: Shaped<Term[]>
       model: Shaped<ModelInfo | null>

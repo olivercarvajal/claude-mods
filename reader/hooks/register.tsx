@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { CommandSpec, EngineInterface, ModelEffort, Register } from 'claude-code'
 
 import { splitReply, termsIn } from './blocks'
-import { drawBlocks, LINE_COLOR } from './draw'
+import { drawBlocks } from './draw'
 import { modelRow, registerModel, startModel, stopModelFrames } from './model'
 import type { Term } from '../types'
 
@@ -14,15 +14,10 @@ const MAX_TERMS = 300
 const BULLET = '⏺'
 const BULLET_WIDTH = 2
 const FENCE = '```'
-// Past either, the band above the prompt offers a simpler version. From his chats:
-// replies before a "no entendí" had a median of 17 lines and 4 identifiers.
-const DENSE_LINES = 20
-const DENSE_IDENTIFIERS = 4
 
 // Change a tag when its value's fields change: it declines what an older version stored.
 const view = atom({ plugin: 'reader', key: 'view' } as const, 'explain')
 const isExplaining = atom({ plugin: 'reader', key: 'isExplaining' } as const, false)
-const isOffering = atom({ plugin: 'reader', key: 'isOffering' } as const, false)
 const explanation = atom({ plugin: 'reader', key: 'explanation' } as const, null, { shape: 'explanation-1' })
 const glossary = atom({ plugin: 'reader', key: 'glossary' } as const, [], { shape: 'glossary-1' })
 
@@ -70,6 +65,16 @@ const COMMANDS: CommandSpec[] = [
     name: 'terms',
     description: 'Show the glossary kept from every session in the Reader pane',
   },
+  {
+    name: 'short',
+    description: 'The last reply again in a few lines, in the Reader pane',
+    immediate: true,
+  },
+  {
+    name: 'zero',
+    description: 'The last reply explained from zero with an example, in the Reader pane',
+    immediate: true,
+  },
 ]
 
 export const register: Register = on => {
@@ -105,12 +110,6 @@ export const register: Register = on => {
     return { sections: [...composed.sections, { id: 'reader:formats', text: FORMATS, scope: 'session' }] }
   })
 
-  on('prompt.submit', async ($, e, next) => {
-    await update($, isOffering, () => false)
-
-    return next(e)
-  })
-
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
 
@@ -118,7 +117,6 @@ export const register: Register = on => {
       await stopModelFrames($)
     }
     if (e.agentId === undefined && e.reason === 'answer') {
-      await update($, isOffering, () => isDense(e.answer))
       await addTerms($, termsIn(e.answer))
     }
 
@@ -142,6 +140,18 @@ export const register: Register = on => {
     await askAside($, 'Recap of this session', RECAP_PROMPT, 'medium')
 
     return { text: 'Recap in the Reader pane.' }
+  })
+
+  on('command.run', { command: 'short' }, async $ => {
+    await askAside($, 'Short version of the last reply', SHORT_PROMPT, 'low')
+
+    return { text: 'Short version in the Reader pane.' }
+  })
+
+  on('command.run', { command: 'zero' }, async $ => {
+    await askAside($, 'The last reply, from zero', FROM_ZERO_PROMPT, 'medium')
+
+    return { text: 'From zero in the Reader pane.' }
   })
 
   on('command.run', { command: 'terms' }, async $ => {
@@ -171,46 +181,21 @@ export const register: Register = on => {
     )
   })
 
-  // Our row above the prompt: the model, effort and context on the left, "Hard to follow?" on the right when offered.
-  // Letter hotkeys only: a bare digit in an empty prompt would press a band button,
-  // and this user answers decisions by number.
+  // Our row above the prompt: the model, the effort and the context used.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.surface !== 'terminal' || e.props.hasSurvey) {
       return next(e)
     }
     const table = $.ui.resolve(e)
-    const { Box, Button, Text } = table
     const model = await modelRow($, table)
-    const isOffered = !e.props.isWorking && (await read($, isOffering))
 
-    if (model === null && !isOffered) {
+    if (model === null) {
       return next(e)
     }
+    const { Box } = table
 
-    return (
-      // marginTop: the engine leaves a blank row under the band but none above it, so the row hugged the reply.
-      // Narrower than both sides (about 76 columns), "Hard to follow?" wraps to a row of its own.
-      <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={2} marginTop={1} width={e.props.bodyColumns}>
-        {model ?? <Text> </Text>}
-        {isOffered ? (
-          <Box flexDirection="row" gap={1} flexShrink={0}>
-            <Text color={LINE_COLOR}>Hard to follow?</Text>
-            <Button
-              key="short"
-              label="Short version"
-              hotkey="s"
-              onPress={() => void askAside($, 'Short version of the last reply', SHORT_PROMPT, 'low')}
-            />
-            <Button
-              key="zero"
-              label="From zero"
-              hotkey="z"
-              onPress={() => void askAside($, 'The last reply, from zero', FROM_ZERO_PROMPT, 'medium')}
-            />
-          </Box>
-        ) : null}
-      </Box>
-    )
+    // The engine leaves a blank row under the band but none above it, so the row hugged the reply.
+    return <Box marginTop={1}>{model}</Box>
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -316,13 +301,6 @@ function explainPrompt(subject: string, isSelection: boolean): string {
     subject,
     '</subject>',
   ].join('\n')
-}
-
-function isDense(answer: string): boolean {
-  const lines = answer.split('\n').length
-  const identifiers = answer.match(/`[^`\n]+`/g)?.length ?? 0
-
-  return lines > DENSE_LINES || identifiers >= DENSE_IDENTIFIERS
 }
 
 async function addTerms($: EngineInterface, added: Term[]): Promise<void> {
